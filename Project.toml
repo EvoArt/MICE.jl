@@ -1,0 +1,13 @@
+name = "MICE"
+uuid = "e70a4b64-5ba2-497c-b735-00ef671c6d2d"
+authors = ["Arthur Newbury"]
+version = "0.1.0"
+
+[compat]
+julia = "1.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
