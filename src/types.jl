@@ -1,6 +1,7 @@
 
 struct Normal_Model
     x::SubArray
+    y::Vector{Bool}
     α::Float64
     β::Vector{Float64}
     σ::Float64
@@ -8,6 +9,7 @@ struct Normal_Model
 end
 struct Pos_Normal_Model
     x::SubArray
+    y::Vector{Bool}
     α::Float64
     β::Vector{Float64}
     σ::Float64
@@ -15,6 +17,7 @@ struct Pos_Normal_Model
 end
 struct Neg_Normal_Model
     x::SubArray
+    y::Vector{Bool}
     α::Float64
     β::Vector{Float64}
     σ::Float64
@@ -22,6 +25,7 @@ struct Neg_Normal_Model
 end
 struct Zero_Normal_Model
     x::SubArray
+    y::Vector{Bool}
     α::Float64
     β::Vector{Float64}
     σ::Float64
@@ -32,6 +36,7 @@ struct Zero_Normal_Model
 end
 struct Poisson_Model
     x::SubArray
+    y::Vector{Bool}
     α::Float64
     β::Vector{Float64}
     transform::Tuple{Vector{Float64},Vector{Float64}}
