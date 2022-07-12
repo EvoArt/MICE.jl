@@ -3,6 +3,12 @@ uuid = "e70a4b64-5ba2-497c-b735-00ef671c6d2d"
 authors = ["Arthur Newbury"]
 version = "0.1.0"
 
+[deps]
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
+
 [compat]
 julia = "1.7"
 
