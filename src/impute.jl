@@ -24,6 +24,7 @@ end
 
 function rand(m::Poisson_Model)
     λ = m.α .+ sum(m.β' .* (m.x .-m.transform[1]') ./ m.transform[2]',dims = 2)
+    #λ = m.α .+ sum(m.β' .* m.x ,dims = 2)
     rand.(Poisson.(exp.(λ)))
 end
 
@@ -35,7 +36,7 @@ end
 function naieve_impute(x::Array)
     X = copy(x)
     for col in eachcol(X)
-        col[ismissing.(col)] .= mean(skipmissing(col))
+        col[ismissing.(col)] .= median(skipmissing(col))
     end
     X
 end
@@ -61,7 +62,7 @@ function get_inference_mods(x)
     end
     mods
 end
-function impute(x::Array, rounds = 10)
+function impute(x::Array, rounds::Int = 10)
     _,n = size(x)
     inference_mods = get_inference_mods(x)
     X = naieve_impute(x) 
@@ -74,4 +75,23 @@ function impute(x::Array, rounds = 10)
     X
 end
             
+function impute(x::Array, x_prop::Array, rounds::Int = 10)
+    _,n = size(x)
+    inference_mods = get_inference_mods(x)
+    X = naieve_impute(x) 
+    X_prop = x_prop ./sum(x_prop, dims = 2)
+    prop_mask = ismissing.(X_prop)
+    prop_mi = vec(sum(prop_mask, dims = 2)) .> 0 
+
+    for round in 1:rounds
+        for i in 1:n
+            m = inference_mods[i](X[:,1:n .!= i],x[:,i])
+            X[m.y,i] .=rand(m)
+        end
+    end
+    m = infer_prop(X,X_prop, prop_mi)
+    X_prop[mi,:] .= rand(m)
+    X
+end
             
+      

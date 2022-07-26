@@ -1,11 +1,12 @@
 
 @model function poisson(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
                             n= size(x)[1],m= size(x)[2])
-    α ~ Normal()
+    α ~ Normal(log(mean(y)),log(mean(y)))
     β ~ filldist(Normal(),m)  
     λ = vec(α .+ sum(X .* β', dims = 2))
 
     y .~ Poisson.(exp.(λ))
+    #println(exp.(λ))
 end
 
 @model function normal(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
@@ -49,6 +50,17 @@ end
 
     y[y_bool] .~ truncated.(Normal.(μ,σ),0,Inf)
     y_bool .~ BernoulliLogit.(p)
+end
+
+@model function prop(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
+                     n= size(x)[1],m= size(x)[2])
+
+    #α ~ filldist(Normal(0,1),size(y)[2])
+    β ~ filldist(Normal(0,10),size(y)[2],m)  
+
+    for i in 1:size(y)[1]
+        y[i,:] ~ Dirichlet(abs.(β * x[i,:]) )
+    end
 end
 
 
@@ -105,3 +117,12 @@ function infer_poisson(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y))
     Poisson_Model(view(x,missing_inds,inds),missing_inds,α,β,transform )
 end
 
+function infer_prop(x,y, missing_inds)
+    model = prop(x[.! missing_inds,inds],y[.! missing_inds])
+    map_estimate = optimize(model,MAP(),Optim.Options(allow_f_increases=true))
+    pars = coef(map_estimate)
+    α = pars[:α]
+    β = vec(pars[2:end])
+    transform = Tuple([vec(mean(x,dims=1)), vec(max.(std(x,dims=1),0.000001))])
+    prop_Model(view(x,missing_inds,inds),missing_inds,α,β,transform )
+end
