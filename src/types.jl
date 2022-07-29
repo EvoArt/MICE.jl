@@ -15,6 +15,7 @@ struct Pos_Normal_Model
     σ::Float64
     transform::Tuple{Vector{Float64},Vector{Float64}}
 end
+
 struct Neg_Normal_Model
     x::SubArray
     y::Vector{Bool}
@@ -40,4 +41,6 @@ struct Poisson_Model
     α::Float64
     β::Vector{Float64}
     transform::Tuple{Vector{Float64},Vector{Float64}}
+    max_val::Float64
+
 end

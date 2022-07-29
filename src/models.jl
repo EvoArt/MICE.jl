@@ -1,55 +1,89 @@
 
-@model function poisson(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
-                            n= size(x)[1],m= size(x)[2])
-    α ~ Normal(log(mean(y)),log(mean(y)))
-    β ~ filldist(Normal(),m)  
-    λ = vec(α .+ sum(X .* β', dims = 2))
 
-    y .~ Poisson.(exp.(λ))
+function muladd!(c,z,y,x)
+    mul!(c,z,y)
+    c .+= x
+end
+
+@model function poisson(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
+                            n= size(x)[1],m= size(x)[2], ::Type{T}=Float64) where {T}
+    λ = Vector{T}(undef,n)
+    α ~ Normal(log(mean(y)),max(median(y),1))
+    β ~ filldist(Cauchy(0,1/m),m)  
+
+    muladd!(λ,X,β,α)
+     for i in 1:n
+        #y[i] ~ Poisson(exp(λ[i]))
+        Turing.@addlogprob! poislogpdf(exp(λ[i]),y[i]) 
+    end
+    #y .~ Poisson.(exp.(λ))
     #println(exp.(λ))
 end
 
 @model function normal(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
-    n= size(x)[1],m= size(x)[2])
-    α ~ Normal()
-    β ~ filldist(Normal(),m)  
-    σ ~ Exponential(std(y) +0.1)
-    μ = vec(α .+ sum(X .* β', dims = 2))
+    n= size(x)[1],m= size(x)[2], ::Type{T}=Float64) where {T}
+    μ = Vector{T}(undef,n)
 
-    y .~ Normal.(μ,σ)
+    α ~ Normal(mean(y),abs(2mean(y)))
+    β ~ filldist(Cauchy(0,1/m),m)  
+    σ ~ Exponential(std(y) +0.1)
+    muladd!(μ,X,β,α)
+     for i in 1:n
+        y[i] ~ Normal(μ[i],σ)
+    end
 end
 
 @model function pos_normal(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
-    n= size(x)[1],m= size(x)[2])
-    α ~ Normal()
-    β ~ filldist(Normal(),m)  
-    σ ~ Exponential(std(y) +0.1)
-    μ = vec(α .+ sum(X .* β', dims = 2))
-
-    y .~ truncated.(Normal.(μ,σ),0,Inf)
+    n= size(x)[1],m= size(x)[2], ::Type{T}=Float64) where {T}
+    μ = Vector{T}(undef,n)
+    sig ~ Exponential(0.00000001)
+    α ~ Normal(mean(y),2mean(y))
+    β ~ filldist(Cauchy(0,1/m),m)  
+    σ ~ Exponential()
+    muladd!(μ,X,β,α)
+    #μ = vec(sum(x .* β', dims=2) .+α)
+     for i in 1:n
+        #y[i] ~ truncated(Normal(μ[i],σ);lower = 0.0)
+        y[i] ~ Normal(μ[i],σ)
+    end
 end
 
 @model function neg_normal(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
-    n= size(x)[1],m= size(x)[2])
-    α ~ Normal()
-    β ~ filldist(Normal(),m)  
-    σ ~ Exponential(std(y)+0.1)
-    μ = vec(α .+ sum(X .* β', dims = 2))
+    n= size(x)[1],m= size(x)[2], ::Type{T}=Float64) where {T}
+    μ = Vector{T}(undef,n)
 
-    y .~ truncated.(Normal.(μ,σ),-Inf,0)
+    α ~ Normal(mean(y),abs(2mean(y)))
+    β ~ filldist(Cauchy(0,1/m),m)  
+    σ ~ Exponential(std(y)+0.1)
+    muladd!(μ,X,β,α)
+     for i in 1:n
+        y[i] ~ Normal(μ[i],σ)
+    end
 end
 
 @model function zero_normal(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
-                            y_bool = y .>0,  n= size(x)[1],m= size(x)[2])
+                            y_bool = y .>0,  n= size(x)[1],m= size(x)[2], ::Type{T}=Float64) where {T}
+    μ = Vector{T}(undef,sum(y_bool))
+    p = Vector{T}(undef,n)
+    bool_inds = (1:n)[y_bool]
+    x_bool = X[y_bool,:]
 
-    α ~ filldist(Normal(),2)
-    β ~ filldist(Normal(),m,2)  
-    σ ~ Exponential(std(y) +0.1)
-    μ = vec(α[1] .+ sum(X[y_bool,:] .* β[:,1]', dims = 2))
-    p = vec(α[2] .+ sum(X .* β[:,2]', dims = 2))
+    α1 ~ Normal(mean(y[y_bool]),2mean(y[y_bool]))
+    α2 =0.0::Float64#~ Normal(mean(y_bool),2mean(y_bool))
+    β1 ~ filldist(Cauchy(0,1/m),m)  
+    β2 ~ filldist(Normal(),m)  
+    σ ~ Exponential(std(y[y_bool]) +0.1)
 
-    y[y_bool] .~ truncated.(Normal.(μ,σ),0,Inf)
-    y_bool .~ BernoulliLogit.(p)
+    muladd!(μ,x_bool,β1,α1)
+    muladd!(p,X,β2,α2)
+
+    for (i,j) in enumerate(bool_inds)
+        y[j] ~ Normal(μ[i],σ)
+    end
+
+    for i in 1:n
+        y_bool[i] ~ BernoulliLogit(p[i])
+    end
 end
 
 @model function prop(x,y, X = (x .- mean(x,dims=1)) ./ max.(std(x,dims=1),0.000001),
@@ -71,17 +105,18 @@ function infer_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y))
     α = pars[:α]
     β = vec(pars[2:end-1])
     σ = pars[end]
-    transform = Tuple([vec(mean(x,dims=1)), vec(max.(std(x,dims=1),0.000001))])
+    transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
     Normal_Model(view(x,missing_inds,inds),missing_inds,α,β,σ,transform )
 end
 function infer_pos_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y))
-    model = pos_normal(x[.! missing_inds,inds],y[.! missing_inds])
+    model = pos_normal(x[.! missing_inds,inds],float.(y[.! missing_inds]))
     map_estimate = optimize(model,MAP(),Optim.Options(allow_f_increases=true))
     pars = coef(map_estimate)
     α = pars[:α]
-    β = vec(pars[2:end-1])
+    β = vec(pars[3:end-1])
     σ = pars[end]
-    transform = Tuple([vec(mean(x,dims=1)), vec(max.(std(x,dims=1),0.000001))])
+    #println([α maximum(β) minimum(β) mean_y mean(skipmissing(y)) std(skipmissing(y))])
+    transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
     Pos_Normal_Model(view(x,missing_inds,inds),missing_inds,α,β,σ,transform )
 end
 function infer_neg_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y))
@@ -91,19 +126,22 @@ function infer_neg_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y))
     α = pars[:α]
     β = vec(pars[2:end-1])
     σ = pars[end]
-    transform = Tuple([vec(mean(x,dims=1)), vec(max.(std(x,dims=1),0.000001))])
+    transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
     Neg_Normal_Model(view(x,missing_inds,inds),missing_inds,α,β,σ,transform )
 end
 function infer_zero_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y))
     model = zero_normal(x[.! missing_inds,inds],y[.! missing_inds])
     map_estimate = optimize(model,MAP(),Optim.Options(allow_f_increases=true))
     pars = coef(map_estimate)
+    
     α = pars[1]
-    αₚ = pars[2]
-    β = vec(pars[3:2+length(inds)])
-    βₚ = vec(pars[3+length(inds):end-1])
+    αₚ = 0.0#pars[2]
+    #β = vec(pars[3:2+length(inds)])
+    β = vec(pars[2:1+length(inds)])
+    #βₚ = vec(pars[3+length(inds):end-1])
+    βₚ = vec(pars[2+length(inds):end-1])
     σ = pars[end]
-    transform = Tuple([vec(mean(x,dims=1)), vec(max.(std(x,dims=1),0.000001))])
+    transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
     Zero_Normal_Model(view(x,missing_inds,inds),missing_inds,α,β,σ,αₚ,βₚ,transform)
 end
 
@@ -113,8 +151,8 @@ function infer_poisson(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y))
     pars = coef(map_estimate)
     α = pars[:α]
     β = vec(pars[2:end])
-    transform = Tuple([vec(mean(x,dims=1)), vec(max.(std(x,dims=1),0.000001))])
-    Poisson_Model(view(x,missing_inds,inds),missing_inds,α,β,transform )
+    transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
+    Poisson_Model(view(x,missing_inds,inds),missing_inds,α,β,transform ,log(maximum(y[.! missing_inds])))
 end
 
 function infer_prop(x,y, missing_inds)
@@ -123,6 +161,6 @@ function infer_prop(x,y, missing_inds)
     pars = coef(map_estimate)
     α = pars[:α]
     β = vec(pars[2:end])
-    transform = Tuple([vec(mean(x,dims=1)), vec(max.(std(x,dims=1),0.000001))])
+    transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
     prop_Model(view(x,missing_inds,inds),missing_inds,α,β,transform )
 end
