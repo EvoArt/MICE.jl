@@ -1,38 +1,38 @@
-function rand(m::Normal_Model)
-    μ = m.α .+ sum(m.β' .* (m.x .- m.transform[1]') ./ m.transform[2]',dims = 2)
-    rand.(Normal.(μ,m.σ))
-end
+# function rand(m::Normal_Model)
+#     μ = m.α .+ sum(m.β' .* (m.x .- m.transform[1]') ./ m.transform[2]',dims = 2)
+#     rand.(Normal.(μ,m.σ))
+# end
 
 
-function rand(m::Pos_Normal_Model)
-    μ = m.α .+ sum(m.β' .* (m.x .- m.transform[1]') ./ m.transform[2]',dims = 2)
-    #μ = m.α .+ sum(m.β' .* (m.x .- m.transform[1]') ,dims = 2)
-    rand.(truncated.(Normal.(μ,m.σ),0,Inf))
-end
+# function rand(m::Pos_Normal_Model)
+#     μ = m.α .+ sum(m.β' .* (m.x .- m.transform[1]') ./ m.transform[2]',dims = 2)
+#     #μ = m.α .+ sum(m.β' .* (m.x .- m.transform[1]') ,dims = 2)
+#     rand.(truncated.(Normal.(μ,m.σ),0,Inf))
+# end
 
-function rand(m::Neg_Normal_Model)
-    μ = m.α .+ sum(m.β' .* (m.x .-m.transform[1]') ./ m.transform[2]',dims = 2)
-    rand.(truncated.(Normal.(μ,m.σ),-Inf,0))
-end
+# function rand(m::Neg_Normal_Model)
+#     μ = m.α .+ sum(m.β' .* (m.x .-m.transform[1]') ./ m.transform[2]',dims = 2)
+#     rand.(truncated.(Normal.(μ,m.σ),-Inf,0))
+# end
 
-function rand(m::Zero_Normal_Model)
-        p = rand.(BernoulliLogit.(m.αₚ .+ sum(m.βₚ' .* (m.x .-m.transform[1]') ./ m.transform[2]',dims = 2)))
-        μ = m.α .+ sum(m.β' .* (m.x .-m.transform[1]') ./ m.transform[2]',dims = 2)
-        q = rand.(truncated.(Normal.(μ,m.σ),0,Inf))
+# function rand(m::Zero_Normal_Model)
+#         p = rand.(BernoulliLogit.(m.αₚ .+ sum(m.βₚ' .* (m.x .-m.transform[1]') ./ m.transform[2]',dims = 2)))
+#         μ = m.α .+ sum(m.β' .* (m.x .-m.transform[1]') ./ m.transform[2]',dims = 2)
+#         q = rand.(truncated.(Normal.(μ,m.σ),0,Inf))
 
-        p .* q
-end
+#         p .* q
+# end
 
-function rand(m::Poisson_Model)
-    λ = m.α .+ sum(m.β' .* (m.x .-m.transform[1]') ./ m.transform[2]',dims = 2)
-    #λ = m.α .+ sum(m.β' .* m.x ,dims = 2)
-    rand.(Poisson.(exp.(clamp.(λ,-Inf,m.max_val))))
-end
+# function rand(m::Poisson_Model)
+#     λ = m.α .+ sum(m.β' .* (m.x .-m.transform[1]') ./ m.transform[2]',dims = 2)
+#     #λ = m.α .+ sum(m.β' .* m.x ,dims = 2)
+#     rand.(Poisson.(exp.(clamp.(λ,-Inf,m.max_val))))
+# end
 
 
-function impute!(x)
-    x .= rand(m)  
-end
+# function impute!(x)
+#     x .= rand(m)  
+# end
 
 function naieve_impute(x::Array)
     X = copy(x)
@@ -70,13 +70,14 @@ function impute(x::Array, rounds::Int = 10)
     n_tasks = rounds*length(inds)
     p = Progress(n_tasks, 1)
     task = 0
-    mean_y =[mean(skipmissing(x[:,i])) for i in 1:n]
     for round in 1:rounds
         #println(X[1:15,:])
         for i in inds
             task+=1
             m = inference_mods[i](X[:,1:n .!=i],x[:,i])
-            X[m.y,i] .=rand(m)
+            #X[m.y,i] .=rand(m)
+            X[ismissing.(x[:,i]),i] .= m
+            #X[m.y,i] .=predict(m,X[m.y,1:n .!=i])
             update!(p, task)
         end
     end
