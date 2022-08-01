@@ -180,7 +180,7 @@ function infer_zero_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y);
     norm_fit = glmnet(present_x[norm_mask,:],present_y[norm_mask], lambda = lambda_norm)
     preds = GLMNet.predict(norm_fit,present_x[norm_mask,:])
     σ = √mean((preds .- present_y[norm_mask]) .^2)
-    norms = rand.truncated.((Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ),0.0,Inf))
+    norms = rand.(truncated.(Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ),0.0,Inf))
     bin_fit = glmnet(x[.! missing_inds,inds],Array{Int}(hcat(float.(y[.! missing_inds]) .==0,float.(y[.! missing_inds]) .>=0)),Binomial(), lambda = lambda_bin)
     berns = rand.(Bernoulli.(logistic.(GLMNet.predict(bin_fit,x[missing_inds,inds]))))
     norms .* berns
