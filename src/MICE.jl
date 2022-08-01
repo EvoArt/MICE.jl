@@ -1,6 +1,6 @@
 module MICE
 using StatsBase
-using LinearAlgebra, StatsFuns, ProgressMeter,GLMNet
+using StatsFuns, ProgressMeter,GLMNet
 
 import Base.rand
 include.(["types.jl","models.jl","impute.jl"])
