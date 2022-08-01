@@ -48,7 +48,13 @@ function get_inference_mods(x)
         y = skipmissing(x[:,i])
         try
             Int.(y)
-            push!(mods,infer_poisson)
+            if (sum(y .==0) /length(y)) > 0.1
+                push!(mods,infer_zero_poisson)
+            elseif (sum(y .==0) > 1) & (mean(y[y .>0]) >10)
+                push!(mods,infer_zero_poisson)
+            else
+                push!(mods,infer_poisson)
+            end
         catch
             if any(y .==0.0)
                 push!(mods,infer_zero_normal)
@@ -63,7 +69,7 @@ function get_inference_mods(x)
     end
     mods
 end
-function impute(x::Array, rounds::Int = 10)
+function impute(x::Array, rounds::Int = 10; lambda = :cv)
     _,n = size(x)
     inference_mods = get_inference_mods(x)
     X,inds = naieve_impute(x) 
@@ -74,7 +80,7 @@ function impute(x::Array, rounds::Int = 10)
         #println(X[1:15,:])
         for i in inds
             task+=1
-            m = inference_mods[i](X[:,1:n .!=i],x[:,i])
+            m = inference_mods[i](X[:,1:n .!=i],x[:,i],lambda = [lambda])
             #X[m.y,i] .=rand(m)
             X[ismissing.(x[:,i]),i] .= m
             #X[m.y,i] .=predict(m,X[m.y,1:n .!=i])
