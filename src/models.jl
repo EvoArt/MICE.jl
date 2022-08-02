@@ -107,6 +107,8 @@ function infer_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); lamb
     #σ = pars[end]
     #transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
     #Normal_Model(view(x,missing_inds,inds),missing_inds,α,β,σ,transform )
+    mn = minimum(skipmissing(y))*1.5
+    mx = maximum(skipmissing(y))*1.5
     if lambda[1] == :cv
         cv = glmnetcv(x[.! missing_inds,inds],float.(y[.! missing_inds]))
         lambda = [cv.lambda[argmin(cv.losses)]]
@@ -114,7 +116,7 @@ function infer_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); lamb
     norm_fit = glmnet(x[.! missing_inds,inds],float.(y[.! missing_inds]), lambda = lambda)
     preds = GLMNet.predict(norm_fit,x[.! missing_inds,inds])
     σ = √mean((preds .- float.(y[.! missing_inds])) .^2)
-    rand.(Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ))
+    rand.(truncated.(Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ),mn,mx))
 end
 function infer_pos_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); lambda = [:cv])
     #model = pos_normal(x[.! missing_inds,inds],float.(y[.! missing_inds]))
@@ -126,6 +128,8 @@ function infer_pos_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); 
     #println([α maximum(β) minimum(β) mean_y mean(skipmissing(y)) std(skipmissing(y))])
     #transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
     #Pos_Normal_Model(view(x,missing_inds,inds),missing_inds,α,β,σ,transform )
+    mx = maximum(skipmissing(y))*1.5
+
     if lambda[1] == :cv
         cv = glmnetcv(x[.! missing_inds,inds],float.(y[.! missing_inds]))
         lambda = [cv.lambda[argmin(cv.losses)]]
@@ -133,7 +137,7 @@ function infer_pos_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); 
     norm_fit = glmnet(x[.! missing_inds,inds],float.(y[.! missing_inds]), lambda = lambda)
     preds = GLMNet.predict(norm_fit,x[.! missing_inds,inds])
     σ = √mean((preds .- float.(y[.! missing_inds])) .^2)
-    rand.(truncated.(Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ),0.0,Inf))
+    rand.(truncated.(Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ),0.0,mx))
 end
 function infer_neg_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); lambda = [:cv])
     #model = neg_normal(x[.! missing_inds,inds],y[.! missing_inds])
@@ -144,6 +148,8 @@ function infer_neg_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); 
     #σ = pars[end]
     #transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
     #Neg_Normal_Model(view(x,missing_inds,inds),missing_inds,α,β,σ,transform )
+    mn = minimum(skipmissing(y))*1.5
+
     if lambda[1] == :cv
         cv = glmnetcv(x[.! missing_inds,inds],float.(y[.! missing_inds]))
         lambda = [cv.lambda[argmin(cv.losses)]]
@@ -151,7 +157,7 @@ function infer_neg_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); 
     norm_fit = glmnet(x[.! missing_inds,inds],float.(y[.! missing_inds]), lambda = lambda)
     preds = GLMNet.predict(norm_fit,x[.! missing_inds,inds])
     σ = √mean((preds .- float.(y[.! missing_inds])) .^2)
-    rand.(truncated.(Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ),-Inf,0.0))
+    rand.(truncated.(Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ),mn,0.0))
 end
 function infer_zero_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); lambda = [:cv])
    # model = zero_normal(x[.! missing_inds,inds],y[.! missing_inds])
@@ -171,6 +177,7 @@ function infer_zero_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y);
     present_y = float.(y[.! missing_inds])
     present_x = x[.! missing_inds,inds]
     norm_mask = present_y .>0
+    mx = maximum(present_y)*1.5
     if lambda[1] == :cv
         cv = glmnetcv(present_x[norm_mask,:],present_y[norm_mask])
         lambda_norm = [cv.lambda[argmin(cv.losses)]]
@@ -180,7 +187,7 @@ function infer_zero_normal(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y);
     norm_fit = glmnet(present_x[norm_mask,:],present_y[norm_mask], lambda = lambda_norm)
     preds = GLMNet.predict(norm_fit,present_x[norm_mask,:])
     σ = √mean((preds .- present_y[norm_mask]) .^2)
-    norms = rand.(truncated.(Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ),0.0,Inf))
+    norms = rand.(truncated.(Normal.(GLMNet.predict(norm_fit,x[missing_inds,inds]),σ),0.0,mx))
     bin_fit = glmnet(x[.! missing_inds,inds],Array{Int}(hcat(float.(y[.! missing_inds]) .==0,float.(y[.! missing_inds]) .>=0)),Binomial(), lambda = lambda_bin)
     berns = rand.(Bernoulli.(logistic.(GLMNet.predict(bin_fit,x[missing_inds,inds]))))
     norms .* berns
@@ -204,6 +211,7 @@ function infer_zero_poisson(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y)
      present_y = float.(y[.! missing_inds])
      present_x = x[.! missing_inds,inds]
      norm_mask = present_y .>0
+    mx = maximum(present_y)*1.5
      if lambda[1] == :cv
         cv = glmnetcv(present_x[norm_mask,:],present_y[norm_mask])
         lambda_norm = [cv.lambda[argmin(cv.losses)]]
@@ -213,7 +221,7 @@ function infer_zero_poisson(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y)
 
      mod_fit = glmnet(present_x[norm_mask,:],present_y[norm_mask], Poisson(),lambda = lambda_norm)
 
-     rand.(Poisson.(exp.(GLMNet.predict(mod_fit,x[missing_inds,inds]))))
+     rand.(truncated(Poisson.(exp.(GLMNet.predict(mod_fit,x[missing_inds,inds]))),0.0,mx))
      bin_fit = glmnet(x[.! missing_inds,inds],Array{Int}(hcat(float.(y[.! missing_inds]) .==0,float.(y[.! missing_inds]) .>=0)),Binomial(), lambda = lambda_bin)
      berns = rand.(Bernoulli.(logistic.(GLMNet.predict(bin_fit,x[missing_inds,inds]))))
      norms .* berns
@@ -226,12 +234,14 @@ function infer_poisson(x,y,inds =1:size(x)[2], missing_inds = ismissing.(y); lam
     #β = vec(pars[2:end])
     #transform = Tuple([vec(mean(x[.! missing_inds,inds],dims=1)), vec(max.(std(x[.! missing_inds,inds],dims=1),0.000001))])
     #Poisson_Model(view(x,missing_inds,inds),missing_inds,α,β,transform ,log(maximum(y[.! missing_inds])))
+    mx = maximum(skipmissing(y))*1.5
+    
     if lambda[1] == :cv
         cv = glmnetcv(x[.! missing_inds,inds],float.(y[.! missing_inds]))
         lambda = [cv.lambda[argmin(cv.losses)]]
     end
     mod_fit = glmnet(x[.! missing_inds,inds],float.(y[.! missing_inds]),Poisson(), lambda = lambda)
-    rand.(Poisson.(exp.(GLMNet.predict(mod_fit,x[missing_inds,inds]))))
+    rand.(truncated.(Poisson.(exp.(GLMNet.predict(mod_fit,x[missing_inds,inds]))),0.0,mx))
 end
 
 function infer_prop(x,y, missing_inds)

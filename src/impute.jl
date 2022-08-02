@@ -82,7 +82,11 @@ function impute(x::Array, rounds::Int = 10; lambda = :cv)
             task+=1
             m = inference_mods[i](X[:,1:n .!=i],x[:,i],lambda = [lambda])
             #X[m.y,i] .=rand(m)
-            X[ismissing.(x[:,i]),i] .= m
+            if typeof(m) == Float64
+                X[ismissing.(x[:,i]),i] = m
+            else
+                X[ismissing.(x[:,i]),i] .= m
+            end
             #X[m.y,i] .=predict(m,X[m.y,1:n .!=i])
             update!(p, task)
         end
